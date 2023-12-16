@@ -27,31 +27,12 @@ public:
 
 public:
 
-    span(std::nullptr_t) = delete;
-    span(std::nullptr_t,size_type) = delete;
-    span(std::nullptr_t,std::nullptr_t) = delete;
-
-    HAD_CONSTEXPR23 span() : begin_(nullptr), end_(nullptr) {}
-    HAD_CONSTEXPR23 span(const span& other) noexcept
-        : begin_(other.begin_)
-        , end_(other.end_) {}
-    HAD_CONSTEXPR23 span(span&& other) noexcept
-        : begin_(exchange(other.begin_,nullptr))
-        , end_(exchange(other.end_,nullptr)) {}
-    HAD_CONSTEXPR23 span& operator=(const span& other) & noexcept {
-        begin_ = other.begin_;
-        end_   = other.end_;
-    };
-
-    HAD_CONSTEXPR23 span& operator=(span&& other) & noexcept {
-    };
-
-    HAD_CONSTEXPR23 span(const_pointer_type str, size_type length) noexcept
+    constexpr span(const_pointer_type str, size_type length) noexcept
         : begin_(str)
         , end_(str + length) {
     }
 
-    HAD_CONSTEXPR23 span(const_pointer_type begin, const_pointer_type end) noexcept
+    constexpr span(const_pointer_type begin, const_pointer_type end) noexcept
         : begin_(begin)
         , end_(end) {
     }

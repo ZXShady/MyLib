@@ -7,6 +7,7 @@
 #include <had/type_traits/remove_extent.hpp>
 #include <had/type_traits/is_trivially_copyable.hpp>
 #include <cstring>
+#include <had/array.hpp>
 
 HAD_NAMESPACE_BEGIN
 
@@ -46,14 +47,14 @@ HAD_NODISCARD To bit_cast(From from) noexcept {
 
 template<typename To,typename From,typename enable_if<is_bounded_array<To>::value>::type = 0>
 had::array<typename remove_extent<To>::type,
-	sizeof(To) / sizeof(typename remove_extent<To>::type)> bit_cast(From from) noexcept {
+	(sizeof(To) / sizeof(typename remove_extent<To>::type))> bit_cast(From from) noexcept {
 	
 	static_assert(sizeof(To) == sizeof(From), "had::bit_cast<To>(From) sizeof(To) must be equal to sizeof(From)");
 	static_assert(is_trivially_copyable<To>::value, "had::bit_cast<To>(From) To must be trivially copyable");
 	static_assert(is_trivially_copyable<From>::value, "had::bit_cast<To>(From) From must be trivially copyable");
 	
 	had::array<typename remove_extent<To>::type,
-		sizeof(To) / sizeof(typename remove_extent<To>::type)> to;
+		(sizeof(To) / sizeof(typename remove_extent<To>::type))> to;
 	std::memcpy(&to[0], &from, sizeof(To));
 	return to;
 }

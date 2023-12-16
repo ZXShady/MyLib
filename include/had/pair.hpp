@@ -35,35 +35,36 @@ struct formatter<pair<T, U>> {
 		return format("( first = {}, second = {} )",pair.first,pair.second);
     }
 };
+
 HAD_NAMESPACE_END
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator==(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator==(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return a.first == b.first && a.second == b.second;
 }
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator!=(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator!=(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return !(a == b);
 }
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator<(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator<(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return a.first < b.first || a.second < b.second;
 }
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator>(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator>(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return b > a;
 }
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator<=(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator<=(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return !(a > b);
 }
 
-template<typename T1,typename T2>
-HAD_NODISCARD HAD_CONSTEXPR14 bool operator>=(const had::pair<T1,T2>& a,const had::pair<T1,T2>& b) noexcept {
+template<typename T,typename U>
+HAD_NODISCARD HAD_CONSTEXPR14 bool operator>=(const had::pair<T,U>& a,const had::pair<T,U>& b) noexcept {
     return !(a < b);
 }
 #endif // !HAD_PAIR_HPP

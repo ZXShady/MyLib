@@ -1,12 +1,7 @@
-// xsmf_control.h internal header
-
-// Copyright (c) Microsoft Corporation.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
 #pragma once
 
-#ifndef HAD_SMF_CONTROL_HPP
-#define HAD_SMF_CONTROL_HPP
+#ifndef HAD_INTERNAL_SMF_CONTROL_HPP
+#define HAD_INTERNAL_SMF_CONTROL_HPP
 
 #include <had/type_traits/special_member_functions.hpp>
 #include <had/type_traits/conditional.hpp>
@@ -43,7 +38,8 @@ struct deleted_copy : Base { // deleted copy construction facade
 };
 
 template <typename Base, typename... Ts>
-using control_copy = conditional_t<conjunction_v<is_trivially_copy_constructible<Ts>...>, Base,
+using control_copy = conditional_t<
+    conjunction_v<is_trivially_copy_constructible<Ts>...>, Base,
     conditional_t<conjunction_v<is_copy_constructible<Ts>...>, non_trivial_copy<Base>, deleted_copy<Base>>>;
 
 template <typename Base, typename... Ts>
@@ -166,4 +162,4 @@ using SMF_control = details::SMF::control_move_assign<Base, Ts...>;
 
 HAD_NAMESPACE_END
 
-#endif // !HAD_SMF_CONTROL_HPP
+#endif // !HAD_INTERNAL_SMF_CONTROL_HPP

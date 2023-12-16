@@ -20,7 +20,8 @@
 #include <had/algorithm/copy.hpp>
 #include <had/algorithm/fill.hpp>
 #include <had/algorithm/equal.hpp>
-#include <had/limits.hpp>
+#include <limits>
+
 HAD_NAMESPACE_BEGIN
 template<
     typename CharType,
@@ -718,7 +719,7 @@ inline string to_lowercase(string str) {
         107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,91,92,
         93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,
         112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127 };
-    constexpr static bool is_signed = numeric_limits<string::value_type>::is_signed;
+    constexpr static bool is_signed = std::numeric_limits<string::value_type>::is_signed;
     for (auto& c : str) {
         c = table[c + (is_signed * 128)];
     }
@@ -747,7 +748,7 @@ inline string to_uppercase(string str) {
         67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,
         83,84,85,86,87,88,89,90,123,124,125,126,127
     };
-    constexpr static bool is_signed = numeric_limits<string::value_type>::is_signed;
+    constexpr static bool is_signed = std::numeric_limits<string::value_type>::is_signed;
     for (auto& c : str) {
         c = table[c + (is_signed * 128)];
     }

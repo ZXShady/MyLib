@@ -46,17 +46,24 @@ public:
     {
     }
 
+    unique_ptr() noexcept
+        : pair_(nullptr)
+    {
+    }
+
     explicit unique_ptr(std::nullptr_t) noexcept
         :pair_(nullptr)
     {
     }
 
     template <typename U, typename DX,typename enable_if<
-           (!is_array_v<U>) 
-        && is_convertible_v<typename unique_ptr<U, DX>::pointer_type, pointer_type>
-        && ((is_reference_v<DX>) ? is_same_v<DX, deleter_type> : is_convertible_v<DX, deleter_type>)
+           !is_array<U>::value 
+        && is_convertible<typename unique_ptr<U, DX>::pointer_type, pointer_type>::value
+        && ((is_reference<DX>::value)
+        ? is_same<DX, deleter_type>::value
+        : is_convertible<DX, deleter_type>::value)
     >::type = 0>
-    _CONSTEXPR23 unique_ptr(unique_ptr<U, DX>&& other) noexcept
+    HAD_CONSTEXPR23 unique_ptr(unique_ptr<U, DX>&& other) noexcept
         : pair_(one_then_variadic_args_t{}, HAD_NS forward<DX>(other.get_deleter()), other.release()) {}
 
     // uncopyable

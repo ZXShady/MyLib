@@ -151,11 +151,13 @@ public:
 
     void shrink_to_fit() {
         HAD_NS unique_ptr<value_type[]> buffer(get_allocator().allocate(mSize));
-        auto pair = make_iterator_pair(begin(), end());
-        
+        const auto my_begin = begin();
+        const auto my_end   = end();
+        auto pair = make_iterator_pair(my_begin, my_end);
+
         HAD_NS uninitialized_move_if_noexcept(pair, buffer.data());
         
-        HAD_NS destroy(pair);
+        HAD_NS destroy(my_begin, my_end);
         
         get_allocator().deallocate(data(), mCapacity);
         getMyPtr() = buffer.release(nullptr);
@@ -212,7 +214,7 @@ public:
 
     ~vector() noexcept {
         
-        HAD_NS destroy( get_iterator_pair() );
+        HAD_NS destroy( begin(),end() );
 
         get_allocator().deallocate(data(),mCapacity);
     }
@@ -420,12 +422,15 @@ private:
         }
     }
     void reAlloc(size_type new_capacity) {
-        HAD_NS unique_ptr<value_type[]> buffer(get_allocator().allocate(new_capacity));
+        using Deleter = decltype([&](void* ptr) {
+            get_allocator().deallocate(ptr, mCapacity);
+            });
+        HAD_NS unique_ptr<value_type[],Deleter> buffer(get_allocator().allocate(new_capacity));
 
         auto pair = make_iterator_pair(begin(), end());
         HAD_NS uninitialized_copy(pair, buffer.data());
         
-        HAD_NS destroy(pair);
+        HAD_NS destroy(pair.begin, pair.end);
 
         get_allocator().deallocate(data(),mCapacity);
         getMyPtr() = buffer.release(nullptr);

@@ -15,7 +15,7 @@
 class bad_any_cast : public std::exception {
 public:
     using base = std::exception;
-    bad_any_cast(const char* what = "bad any_cast") : base(what) {}
+    bad_any_cast(const char* what = "bad_any_cast") : base(what) {}
 
     HAD_NODISCARD char const* what() const override {
         return "bad_any_cast";
@@ -30,7 +30,9 @@ private:
         throw bad_any_cast{};
     }
 public:
-    any() noexcept : mTypeInfo(&typeid(void)),mPtr(nullptr) {
+    any() noexcept
+        : mTypeInfo(&typeid(void))
+        , mPtr(nullptr) {
     };
 
     template<typename T,enable_if_t<!is_same_v<T,any>> = 0 >
@@ -42,7 +44,7 @@ public:
 
     any(const any& other) 
         : mTypeInfo(&other.type())
-        , mPtr(static_cast<object_base*>(other.mPtr->clone()->get_ptr()))
+        , mPtr(static_cast<object_base*>(other.mPtr->clone()))
     {
     }
 
@@ -52,7 +54,7 @@ public:
     {
     }
 
-    template<typename T,enable_if_t<!is_same_v<T,any>> = 0 >
+    template<typename T,typename enable_if<!is_same<T,any>::value>::type = 0 >
     any& operator=(T&& value)  {
         any copy(HAD_NS forward<T>(value));
         this->swap(copy);
@@ -64,9 +66,10 @@ public:
         this->swap(copy);
         return *this;
     }
+
     any& operator=(any&& other) noexcept {
         mTypeInfo = &other.type();
-        mPtr.reset(other.mPtr.release());
+        mPtr = HAD_NS move(other.mPtr);
         return *this;
     }
 

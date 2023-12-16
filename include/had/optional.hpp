@@ -14,7 +14,7 @@
 #include <had/type_traits/remove_cvref.hpp>
 #include <had/version/namespace.hpp>
 #include <had/macros.hpp>
-#include <had/smf_control.hpp>
+#include <had/internal/SMF_control.hpp>
 #include <had/utility/destroy_at.hpp>
 #include <had/utility/invoke.hpp>
 #include <had/format.hpp>
@@ -43,37 +43,10 @@ struct bad_optional_access : exception {
 
 namespace details {
 namespace optional {
-
-template<typename Self,typename U>
-HAD_NODISCARD HAD_CONSTEXPR14 
-auto value_or(Self&& self,U&& defaultvalue)
--> typename HAD_NS remove_cvref<decltype(*self)>::type
-{
-    if (self)
-        return *self;
-    // construct
-    using nocvref_U = typename remove_cvref<U>::type;
-    return static_cast<nocvref_U>(HAD_NS forward<U>(defaultvalue));
-}
-
-template<typename Self>
-HAD_NODISCARD HAD_CONSTEXPR14 auto operatorDereference(Self&& self)
--> typename HAD_NS like<Self&&,typename remove_cvref<Self>::type::value_type>::type
-{
-#if HAD_CONTAINER_DEBUGGING_LEVEL > 0
-
-    if (!self) {
-        throw bad_optional_access("From optional<T>::operator*()");
-    }
-
-#endif // HAD_CONTAINER_DEBUGGING_LEVEL > 0
-
-    return HAD_NS forward_like<Self&&>(self.mValue);
-}
-
+#ifdef HAD_CPP17
 
 template<typename Self,typename Fn>
-HAD_CONSTEXPR14 auto and_then(Self&& self, Fn&& fn)
+constexpr auto and_then(Self&& self, Fn&& fn)
 -> decltype(HAD_NS invoke(fn,*self))
 {
     using SelfType = typename remove_cvref<Self>::type;
@@ -89,6 +62,8 @@ HAD_CONSTEXPR14 auto and_then(Self&& self, Fn&& fn)
     return noCvRef{};
 }
 
+#endif // HAD_CPP17
+
 template<typename Self>
 HAD_CONSTEXPR14 auto value(Self&& self) 
 -> typename HAD_NS like<Self&&,decltype(*self)>::type {
@@ -103,18 +78,18 @@ struct non_trivial_dummy_type {
 
     }
 };
-template <class T, bool = is_trivially_destructible_v<T>>
+template <class T, bool = is_trivially_destructible<T>::value>
 struct destruct_base { // either contains a value of T or is empty (trivial destructor)
     union {
         non_trivial_dummy_type dummy;
         typename remove_cv<T>::type mValue;
     };
-    bool mhas_value;
+    bool mHasValue;
 
-    constexpr destruct_base() noexcept : dummy{}, mhas_value{false} {} // initialize an empty optional
+    constexpr destruct_base() noexcept : dummy{}, mHasValue{false} {} // initialize an empty optional
 
     void reset() noexcept {
-        mhas_value = false;
+        mHasValue = false;
     }
 };
 
@@ -124,15 +99,15 @@ struct destruct_base<T, false> { // either contains a value of T or is empty (no
         non_trivial_dummy_type dummy;
         remove_cv_t<T> mValue;
     };
-    bool mhas_value;
+    bool mHasValue;
 
     ~destruct_base() noexcept {
-        if (mhas_value) {
+        if (mHasValue) {
             destroy_at(HAD_NS addressof(mValue));
         }
     }
 
-    constexpr destruct_base() noexcept : dummy{}, mhas_value{false} {} // initialize an empty optional
+    constexpr destruct_base() noexcept : dummy{}, mHasValue{false} {} // initialize an empty optional
 
     destruct_base(const destruct_base&)            = default;
     destruct_base(destruct_base&&)                 = default;
@@ -140,9 +115,9 @@ struct destruct_base<T, false> { // either contains a value of T or is empty (no
     destruct_base& operator=(destruct_base&&)      = default;
 
     void reset() noexcept {
-        if (mhas_value) {
+        if (mHasValue) {
             destroy_at(HAD_NS addressof(mValue));
-            mhas_value = false;
+            mHasValue = false;
         }
     }
 };
@@ -153,12 +128,12 @@ struct construct_base : destruct_base<T> {
     template <typename... Args>
     void smf_construct(Args&&... args) {
         construct_at(&this->mValue, ::had::forward<Args>(args)...);
-        this->mhas_value = true;
+        this->mHasValue = true;
     }
 
     template <typename Self>
     void smf_assign(Self&& other) {
-        if (this->mhas_value) {
+        if (this->mHasValue) {
             static_cast<T&>(this->mValue) = ::had::forward<Self>(other);
         } else {
             smf_construct(::had::forward<Self>(other));
@@ -172,7 +147,7 @@ struct construct_base : destruct_base<T> {
 
     template <typename Self>
     void smf_assign_from(Self&& other)  {
-        if (other.mhas_value) {
+        if (other.mHasValue) {
             smf_assign(other);
         }
     }
@@ -194,7 +169,7 @@ class optional : private HAD_NS SMF_control<details::optional::construct_base<Va
 private:
     template<typename Self>
     friend HAD_NODISCARD HAD_CONSTEXPR14 auto details::optional::operatorDereference(Self&&)
-        -> typename HAD_NS like<Self&&,typename remove_cvref<Self>::type::value_type>::type;
+        -> typename HAD_NS like<Self,typename remove_cvref<Self>::type::value_type>::type;
 public:
     using this_type                    = optional;
     using value_type                   = ValueType;
@@ -225,7 +200,7 @@ public:
     using my_base::reset;
 private:
     using my_base::mValue;
-    using my_base::mhas_value;
+    using my_base::mHasValue;
     using my_base::smf_construct;
     using my_base::smf_assign;
     using my_base::smf_construct_from;
@@ -236,8 +211,7 @@ public:
 
 
     template<typename... Args>
-    optional(in_place_t,Args&&... args) 
-    {
+    optional(in_place_t,Args&&... args) noexcept(is_nothrow_constructible<T,Args...>::value) {
         this->smf_construct(HAD_NS forward<Args>(args)...);
     }
 
@@ -250,17 +224,29 @@ public:
     }
 
     HAD_NODISCARD constexpr bool has_value() const noexcept {
-        return this->mhas_value;
+        return this->mHasValue;
     }
 
     HAD_NODISCARD constexpr bool has_value() const volatile noexcept {
-        return this->mhas_value;
+        return this->mHasValue;
     }
 
-#define HAD_OPERATOR_DEREFERENCE_(THIS_QUALIFIERS)                                                     \
-    HAD_NODISCARD HAD_CONSTEXPR14 value_type THIS_QUALIFIERS operator*() THIS_QUALIFIERS  noexcept {            \
-        return ::had::details::optional::operatorDereference(static_cast<this_type THIS_QUALIFIERS>(*this));                     \
+#if HAD_CONTAINER_DEBUGGING_LEVEL > 0
+#define HAD_OPERATOR_DEREFERENCE_(CVREF)                                         \
+    HAD_NODISCARD HAD_CONSTEXPR14 value_type CVREF operator*() CVREF noexcept {  \
+        if (!this->has_value()) {                                                \
+            throw bad_optional_access("From optional<T>::operator*()");          \
+        }                                                                        \
+        return static_cast<value_type CVREF>(this->mValue);                      \
     }
+#else // HAD_CONTAINER_DEBUGGING_LEVEL == 0  
+
+#define HAD_OPERATOR_DEREFERENCE_(CVREF)                                          \
+    HAD_NODISCARD HAD_CONSTEXPR14 value_type CVREF operator*() CVREF noexcept {   \
+        return static_cast<value_type CVREF>(this->mValue);                       \
+    }
+
+#endif // HAD_CONTAINER_DEBUGGING_LEVEL > 0  
 
     HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HAD_OPERATOR_DEREFERENCE_)
 
@@ -282,16 +268,17 @@ public:
     HAD_NODISCARD HAD_CONSTEXPR14 const volatile value_type* operator->() const volatile noexcept { return HAD_NS addressof(**this);}
 
     template <typename... Args>
-    _CONSTEXPR20 reference_type emplace(Args&&... args) 
-        noexcept(is_nothrow_constructible_v<value_type, Args...>) {
+    HAD_CONSTEXPR20 reference_type emplace(Args&&... args) 
+        noexcept(is_nothrow_constructible<value_type, Args...>::value) {
         this->reset();
         this->smf_construct(::had::forward<Args>(args)...);
         return this->mValue;
     }
 
     template <typename ElemType, typename... Args,
-        enable_if_t<is_constructible_v<value_type, initializer_list<ElemType>&, Args...>
-        > = 0>
+        typename enable_if<
+        is_constructible<value_type, initializer_list<ElemType>&, Args...>::value
+        >::type = 0>
     HAD_CONSTEXPR20 reference_type emplace(initializer_list<ElemType> ilist, Args&&... args) noexcept(
         is_nothrow_constructible_v<value_type, initializer_list<ElemType>&, Args...>)  {
         
@@ -303,7 +290,7 @@ public:
     HAD_CONSTEXPR14 void swap(optional& other) 
         noexcept(nothrow_move_construct && nothrow_swappable) {
         using ::had::swap;
-        const bool has_val = this->mhas_value;
+        const bool has_val = this->mHasValue;
         if (has_val == other.has_value()) {
             if (has_val) {
                 swap(**this, *other ); // intentional ADL
@@ -317,7 +304,7 @@ public:
         }
     }
 
-    HAD_CONSTEXPR14 friend void swap(optional& a,optional& b) noexcept(noexcept(a.swap(b))) {
+    HAD_CONSTEXPR14 friend void swap(optional& a, optional& b) noexcept(noexcept(a.swap(b))) {
         a.swap(b);
     }
 //        static_assert(is_convertible_v<const_reference_type, no_cv_type>,
@@ -326,17 +313,38 @@ public:
  //       static_assert(is_convertible_v<U, value_type>,
  //           "optional<T>::value_or(U) requires U to be convertible to T (N4950 [optional.observe]/15).");
 
-#define HADvalue_OR_(THIS_QUALIFIERS)                                                                   \
-    template <typename U>                                                                                \
-    HAD_NODISCARD constexpr no_cv_type value_or(U&& defaultvalue) THIS_QUALIFIERS                       \
-    {                                                                                                    \
-        using cast = this_type THIS_QUALIFIERS;                                                          \
-        return details::optional::value_or(static_cast<cast>(*this),HAD_NS forward<U>(defaultvalue));   \
+    /*
+#define HAD_VALUE_OR_(CVREF)                                                                   \
+    template<typename U>                                                                       \
+    HAD_NODISCARD HAD_CONSTEXPR14 value_type value_or(U&& defaultValue) CVREF {                \
+        if (this->has_value()) return static_cast<typename remove_cvref<U>::type>(**this);     \
+        return static_cast<typename remove_cvref<U>::type>(HAD_NS forward<U>(defaultValue));   \
     }
-    HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HADvalue_OR_)    
+    */
 
-#undef HADvalue_OR_
 
+#define HAD_VALUE_OR_(CVREF)                                                                                         \
+    template<typename U>                                                                                             \
+    HAD_NODISCARD HAD_CONSTEXPR14 auto value_or(U&& defaultValue) CVREF                                              \
+        -> typename remove_cv<value_type>::type {                                                                    \
+        static_assert(is_convertible<                                                                                \
+            typename remove_rvalue_reference<value_type CVREF>::type,                                                \
+            typename remove_cv<U>::type                                                                              \
+        >::value,                                                                                                    \
+            "The " #CVREF " overload of optional<T>::value_or(U&&) requires "                                                  \
+            "T" #CVREF "to be convertible to remove_cv_t<T> "                                                        \
+            "(N4950 [optional.observe]/15 as modified by LWG-3424).");                                               \
+        static_assert(is_convertible<U, value_type>::value,                                                          \
+            "optional<T>::value_or(U) requires U to be convertible to T (N4950 [optional.observe]/15).");            \
+        if (this->has_value()) {                                                                                     \
+            return static_cast<typename remove_rvalue_reference<value_type CVREF>::type>(**this);                    \
+        }                                                                                                            \
+        return static_cast<typename remove_cv<value_type>::type>(HAD_NS forward<U>(defaultValue));                   \
+    }
+
+    HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HAD_VALUE_OR_)    
+
+#undef HAD_VALUE_OR_
 
     HAD_CONSTEXPR20 optional& operator=(nullopt_t) noexcept {
         this->reset();
@@ -344,41 +352,25 @@ public:
     }
 
 
-    template <typename U,enable_if_t<
-        !is_same<this_type,U>::value
-        && is_constructible<value_type,U&&>::value > = 0>
+    template <typename U,typename enable_if<
+        !is_same<this_type,typename remove_cvref<U>::type>::value
+        && is_constructible<value_type,U>::value >::type = 0>
     HAD_CONSTEXPR20 optional& operator=(U&& other) noexcept(
-        is_nothrow_assignable_v<value_type&, U> 
-        && is_nothrow_constructible_v<value_type, U>
-        )  {
+           is_nothrow_assignable<value_type&, U>::value
+        && is_nothrow_constructible<value_type, U>::value)  {
         if (other) {
             this->smf_assign(other);
         } else {
-            reset();
+            this->reset();
         }
 
         return *this;
     }
 
-    template <typename U,typename enable_if<is_same<this_type,U>::value >::type = 0>
+    template <typename U,typename enable_if<is_same<value_type,U>::value >::type = 0>
     HAD_CONSTEXPR20 optional& operator=(const optional<U>& other) noexcept(
-        is_nothrow_assignable_v<value_type&, const U&> 
-        && is_nothrow_constructible_v<value_type, const U&>
-        )  {
-        if (other) {
-            this->smf_assign(*other);
-        } else {
-            reset();
-        }
-
-        return *this;
-    }
-
-    template <typename U,typename enable_if<is_same<this_type,U>::value >::type = 0>
-    HAD_CONSTEXPR20 optional& operator=(optional<U>&& other) noexcept(
-        is_nothrow_assignable_v<value_type&, U> 
-        && is_nothrow_constructible_v<value_type, U>
-        )  {
+        is_nothrow_assignable<value_type&, const U&>::value 
+        && is_nothrow_constructible<value_type, const U&>::value)  {
         if (other) {
             this->smf_assign(*other);
         } else {
@@ -387,6 +379,22 @@ public:
 
         return *this;
     }
+
+    template <typename U,typename enable_if<is_same<value_type,U>::value >::type = 0>
+    HAD_CONSTEXPR20 optional& operator=(optional<U>&& other) noexcept(
+        is_nothrow_assignable<value_type&, U>::value 
+        && is_nothrow_constructible<value_type, U>::value)  {
+        if (other) {
+            this->smf_assign(*other);
+        } else {
+            this->reset();
+        }
+
+        return *this;
+    }
+
+#ifdef HAD_CPP17
+
 
 #define HAD_OR_ELSE_(THIS_QUALIFIERS)                                                               \
     template<typename Fn>                                                                           \
@@ -425,9 +433,6 @@ public:
     HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HAD_TRANSFORM_)    
 
 #undef HAD_TRANSFORM_
-
-
-
    
 private:
     template<typename Self,typename Fn>
@@ -440,6 +445,9 @@ private:
         }
         return optional<U>{};
     }
+#endif // HAD_CPP17 (cause C++17 made sequence evaluation of dot (.) operator guranteed)
+       // so using the moniadic functions and_then, or_else and transform
+       // can result in unexcpted output prior to C++17
 
 };
 
@@ -457,7 +465,6 @@ template<typename ValueType>
 class optional<ValueType&> {
 public:
 
-
     using this_type                    = optional;
     using value_type                   = ValueType;
     using pointer_type                 = value_type*;
@@ -473,20 +480,17 @@ public:
     template<typename U,typename enable_if<!is_same<U,this_type>::value>::type = 0>
     optional(U& other) noexcept : mPointer(HAD_NS addressof(other)) {};
 
-    optional(nullptr_t) = delete;
-
-    optional(const optional&) = default;
-    optional(optional&&) = default;
-    optional& operator=(const optional&) = default;
-    optional& operator=(optional&&) = default;
+    HAD_CONSTEXPR14 optional(const optional&) noexcept = default;
+    HAD_CONSTEXPR14 optional(optional&&) noexcept = default;
+    HAD_CONSTEXPR14 optional& operator=(const optional&) noexcept = default;
+    HAD_CONSTEXPR14 optional& operator=(optional&&) noexcept = default;
     ~optional() noexcept = default;
 
-    void swap(this_type& other) noexcept {
-        using ::had::swap;
-        swap(mPointer, other.mPointer);
+    HAD_CONSTEXPR14 void swap(this_type& other) noexcept {
+        ::had::swap(mPointer, other.mPointer);
     }
 
-    friend void swap(this_type& a, this_type& b) noexcept {
+    friend HAD_CONSTEXPR14 void swap(this_type& a, this_type& b) noexcept {
         return a.swap(b);
     }
 
@@ -515,12 +519,11 @@ public:
     }
 
 
-#define HAD_OPERATOR_DEREFERENCE_(THIS_QUALIFIERS)                                                \
-    HAD_NODISCARD HAD_CONSTEXPR14 value_type THIS_QUALIFIERS operator*() THIS_QUALIFIERS          \
-    noexcept(noexcept(*this->mPointer))                                                                   \
-    {                                                                                             \
-        return static_cast<value_type THIS_QUALIFIERS>(*mPointer);                                \
+#define HAD_OPERATOR_DEREFERENCE_(CVREF)                                          \
+    HAD_NODISCARD HAD_CONSTEXPR14 value_type CVREF operator*() CVREF noexcept {   \                                                                                     \
+        return static_cast<value_type CVREF>(*mPointer);                          \
     }
+
     HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HAD_OPERATOR_DEREFERENCE_)    
 
 #undef HAD_OPERATOR_DEREFERENCE_
@@ -538,6 +541,8 @@ public:
 HAD_DEFINE_ALL_MEMBER_FUNCTIONS_WITH_QUALIIERS(HAD_VALUE_)    
 
 #undef HAD_VALUE_
+
+#ifdef HAD_CPP17
 
 
 #define HAD_OR_ELSE_(THIS)                                                               \
@@ -590,13 +595,17 @@ private:
         }
         return optional<U>{};
     }
+#endif // HAD_CPP17 (cause C++17 made sequence evaluation of dot (.) operator guranteed)
+    // so using the moniadic functions and_then, or_else and transform prior to C++17
+    // can result in unexpected output and behavoir.
+
 private:
     pointer_type mPointer;
 };
 
 
 
-
+/*
 template<>
 class optional<bool> {
 public:
@@ -668,7 +677,7 @@ public:
     }
 
     constexpr void emplace(bool arg) noexcept {
-        mValue = arg;
+        mValue = arg + 0x02;
     }
 
     HAD_NODISCARD constexpr explicit operator bool() const noexcept {
@@ -794,7 +803,7 @@ public:
 private:
     unsigned char mValue;
 };
-
+*/
 
 
 template<typename T,typename U>

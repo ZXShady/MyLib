@@ -3,7 +3,6 @@
 #define HAD_FORMAT_FORMATTER_HPP
 
 #include <had/string.hpp>
-#include <had/limits.hpp>
 
 HAD_NAMESPACE_BEGIN
 

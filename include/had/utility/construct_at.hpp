@@ -8,9 +8,8 @@
 
 HAD_NAMESPACE_BEGIN
 
-
 template<typename T,typename... Args>
-HAD_CONSTEXPR20 T* construct_at(T* where, Args&&... args) 
+T* construct_at(T* where, Args&&... args) 
     noexcept(noexcept(::new (static_cast<void*>(where)) T(HAD_NS forward<Args>(args)...) ))
 {
     return ::new (static_cast<void*>(where)) T(HAD_NS forward<Args>(args)...);

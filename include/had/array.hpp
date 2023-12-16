@@ -20,7 +20,6 @@ HAD_NAMESPACE_BEGIN
 template<typename ValueType,std::size_t Size>
 class array {
 public:
-    static_assert(Size != 0,"had::array<T,N> | Size cannot be zero!");
     //static_assert(is_object_v<ValueType>, "had::array prohibits non object types to \
     //                                    \n be used as value types.");
 
@@ -116,6 +115,11 @@ public:
 
 public: // aggregate initialization
     value_type unused_private_data_[Size];
+};
+
+template<typename ValueType>
+class array<ValueType,0> {
+    static_assert(always_false<ValueType>::value, "had::array<T,N> N must be a non-zero integer.");
 };
 
 template<typename T,size_t N>

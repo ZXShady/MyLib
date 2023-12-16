@@ -68,7 +68,7 @@ private:
     static bigint add(const bigint& lhs, const bigint& rhs, bool lhs_negative, bool rhs_negative);
     void fixInvalid();
 private:
-    constexpr static number_type kMaxDigitsInNumber = 1'000'000;
+    constexpr static number_type kMaxDigitsInNumber = number_type(1e7);
     vector<number_type> mNumbers;
     bool mIsNegative = false;
 };

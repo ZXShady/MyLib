@@ -24,28 +24,28 @@ bigint::bigint(string_view numStr)
     while (it != end && *it == '0') {
         ++it;
     }
-
+    // 123
+    // 321
+    number_type num = 0;
     while (it != end) {
-        number_type num = 0;
-        for (size_t i = 0; i < 6; i++) {
-            if (*it == '\'') 
-                it[0];
-            else if (std::isdigit(*it)) {
-                num = num * 10 + (*it - '0');
-                ++it;
-            }
-            else if (it == end) {
-                break;
-            }
-            else {
-                throw std::runtime_error(
-                    HAD_NS 
-                    format("Invalid character in number string at position {}", distance(begin, it)).c_str());
-                break;
-            }
-        }
-        mNumbers.insert(mNumbers.begin(), num);
+        if (std::isdigit(*it)) {
+            num = num * 10 + (*it - '0');
+            ++it;
 
+        }
+        else if (it == end) {
+            break;
+        }
+        else {
+            throw std::runtime_error(
+                HAD_NS
+                format("Invalid character in number string at position {}", distance(begin, it)).c_str());
+            break;
+        }
+        if (num >= kMaxDigitsInNumber) {
+            mNumbers.insert(mNumbers.begin(), num % kMaxDigitsInNumber);
+            num /= kMaxDigitsInNumber;
+        }
     }
     fixInvalid();
 }
@@ -90,7 +90,7 @@ bigint bigint::add(const bigint& lhs, const bigint& rhs, bool lhs_negative, bool
         auto max = HAD_NS max(lhs_size,rhs_size);
         // 124
         //   9 +
-        for (int i = 0; i < max; i++) {
+        for (int i = max-1; i > 0; i--) {
             number_type sum = carry;
             if (i < lhs_size) {
                 sum += lhs.mNumbers[i];
@@ -102,7 +102,7 @@ bigint bigint::add(const bigint& lhs, const bigint& rhs, bool lhs_negative, bool
             carry = sum / kMaxDigitsInNumber;
         }
         if (carry > 0) {
-            result.mNumbers.insert(result.mNumbers.begin(), carry);
+            result.mNumbers.push_back(carry);
         }
         result.fixInvalid();
         return result;

@@ -18,26 +18,32 @@ constexpr bool is_same_v = __is_same(T, U);
 
 
 #else 
-template<typename T, typename U> struct is_same       : false_type {};
-template<typename T>             struct is_same<T, T> : true_type  {};
+template<typename T, typename U> struct is_same          : false_type {};
+template<typename T>             struct is_same<T, T>    : true_type  {};
+template<typename T, typename U> struct is_same_no_cv    : is_same<typename remove_cvref<T>::type,typename remove_cvref<U>::type> {};
+template<typename T, typename U> struct is_same_no_cvref : is_same<typename remove_cvref<T>::type,typename remove_cvref<U>::type> {};
 
 
-#ifdef __cpp_variable_templates
-
+#if defined(__cpp_variable_templates) && !defined(__clang__)
 template<typename T, typename U>
 constexpr bool is_same_v = is_same<T, U>::value;
 template<typename T,typename U>
-constexpr bool is_same_no_qualifiers_v = is_same_v<remove_cv_t<T>,remove_cv_t<U>>;;
+constexpr bool is_same_no_cv_v = is_same_no_cv<T,U>::value;
+template<typename T,typename U>
+constexpr bool is_same_no_cvref_v = is_same_no_cvref<T,U>::value;
 
-#endif // __clang__
+#elif defined(__cpp_variable_templates) && defined(__clang__)
+
+template<typename T, typename U>
+constexpr bool is_same_v = __is_same(T, U);
+template<typename T,typename U>
+constexpr bool is_same_no_cv_v = __is_same(remove_cv_t<T>,remove_cv_t<U>);
+template<typename T,typename U>
+constexpr bool is_same_no_cvref_v = __is_same(remove_cvref_t<T>,remove_cvref_t<U>);
 
 #endif // __cpp_variable_templates
 
 
-template<typename T, typename U> 
-struct is_same_no_qualifiers : boolean_constant < is_same<
-    typename remove_cv<T>::type, typename remove_cv<U>::type >::value > {
-};
 
 
 HAD_NAMESPACE_END
